@@ -255,10 +255,11 @@ void EpubReaderActivity::loop() {
     xSemaphoreTake(renderingMutex, portMAX_DELAY);
 
     if (mappedInput.getHeldTime() > formattingToggleMs) {
-      // Long Press: Cycle Font Family (Bookerly -> Noto -> Dyslexic)
+      // Long Press: Cycle Font Family (Bookerly <-> Noto only)
       SETTINGS.fontFamily++;
-      if (SETTINGS.fontFamily >= CrossPointSettings::FONT_FAMILY_COUNT) {
-        SETTINGS.fontFamily = 0;
+      // IF we hit OpenDyslexic (index 2) or higher, loop back to Bookerly (index 0)
+      if (SETTINGS.fontFamily >= CrossPointSettings::OPENDYSLEXIC) {
+        SETTINGS.fontFamily = CrossPointSettings::BOOKERLY;
       }
       GUI.drawPopup(renderer, "Font Family Changed");  // Feedback
     } else {
