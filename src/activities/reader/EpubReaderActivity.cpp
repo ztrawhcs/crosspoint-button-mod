@@ -234,7 +234,16 @@ void EpubReaderActivity::loop() {
       if (SETTINGS.lineSpacing >= CrossPointSettings::LINE_COMPRESSION_COUNT) {
         SETTINGS.lineSpacing = 0;
       }
-      GUI.drawPopup(renderer, "Line Spacing Changed");  // Feedback
+
+      // Updated Feedback Message
+      const char* spacingMsg = "Spacing: Normal";
+      if (SETTINGS.lineSpacing == CrossPointSettings::LINE_COMPRESSION::TIGHT) {
+        spacingMsg = "Spacing: Tight";
+      } else if (SETTINGS.lineSpacing == CrossPointSettings::LINE_COMPRESSION::WIDE) {
+        spacingMsg = "Spacing: Wide";
+      }
+      GUI.drawPopup(renderer, spacingMsg);
+
     } else {
       // Short Press: Decrease Font Size
       if (SETTINGS.fontSize > CrossPointSettings::FONT_SIZE::SMALL) {
@@ -261,7 +270,12 @@ void EpubReaderActivity::loop() {
       if (SETTINGS.fontFamily >= CrossPointSettings::OPENDYSLEXIC) {
         SETTINGS.fontFamily = CrossPointSettings::BOOKERLY;
       }
-      GUI.drawPopup(renderer, "Font Family Changed");  // Feedback
+
+      // Updated Feedback Message
+      const char* fontMsg =
+          (SETTINGS.fontFamily == CrossPointSettings::BOOKERLY) ? "Font: Bookerly" : "Font: Noto Sans";
+      GUI.drawPopup(renderer, fontMsg);
+
     } else {
       // Short Press: Increase Font Size
       if (SETTINGS.fontSize < CrossPointSettings::FONT_SIZE::EXTRA_LARGE) {
