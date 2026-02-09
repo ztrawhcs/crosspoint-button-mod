@@ -216,19 +216,50 @@ void EpubReaderActivity::loop() {
     return;
   }
 
+  // =========================================================================================
+  // NEW LOGIC: FONT RESIZING
+  // =========================================================================================
+
+  // "Left" button decreases font size
+  if (mappedInput.wasReleased(MappedInputManager::Button::Left)) {
+    if (SETTINGS.fontSize > CrossPointSettings::FONT_SIZE::SMALL) {
+      SETTINGS.fontSize--;
+      SETTINGS.saveToFile();
+      section.reset(); // Force re-render of the book
+      updateRequired = true;
+    }
+    return; // Consume the event so it doesn't do anything else
+  }
+
+  // "Right" button increases font size
+  if (mappedInput.wasReleased(MappedInputManager::Button::Right)) {
+    if (SETTINGS.fontSize < CrossPointSettings::FONT_SIZE::EXTRA_LARGE) {
+      SETTINGS.fontSize++;
+      SETTINGS.saveToFile();
+      section.reset(); // Force re-render of the book
+      updateRequired = true;
+    }
+    return; // Consume the event so it doesn't do anything else
+  }
+
+  // =========================================================================================
+  // PAGE TURNING LOGIC (Modified to remove Left/Right buttons)
+  // =========================================================================================
+
   // When long-press chapter skip is disabled, turn pages on press instead of release.
   const bool usePressForPageTurn = !SETTINGS.longPressChapterSkip;
-  const bool prevTriggered = usePressForPageTurn ? (mappedInput.wasPressed(MappedInputManager::Button::PageBack) ||
-                                                    mappedInput.wasPressed(MappedInputManager::Button::Left))
-                                                 : (mappedInput.wasReleased(MappedInputManager::Button::PageBack) ||
-                                                    mappedInput.wasReleased(MappedInputManager::Button::Left));
+  
+  // OLD CODE REMOVED: || mappedInput.wasPressed(MappedInputManager::Button::Left)
+  const bool prevTriggered = usePressForPageTurn ? mappedInput.wasPressed(MappedInputManager::Button::PageBack)
+                                                 : mappedInput.wasReleased(MappedInputManager::Button::PageBack);
+
   const bool powerPageTurn = SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::PAGE_TURN &&
                              mappedInput.wasReleased(MappedInputManager::Button::Power);
+  
+  // OLD CODE REMOVED: || mappedInput.wasPressed(MappedInputManager::Button::Right)
   const bool nextTriggered = usePressForPageTurn
-                                 ? (mappedInput.wasPressed(MappedInputManager::Button::PageForward) || powerPageTurn ||
-                                    mappedInput.wasPressed(MappedInputManager::Button::Right))
-                                 : (mappedInput.wasReleased(MappedInputManager::Button::PageForward) || powerPageTurn ||
-                                    mappedInput.wasReleased(MappedInputManager::Button::Right));
+                                 ? (mappedInput.wasPressed(MappedInputManager::Button::PageForward) || powerPageTurn)
+                                 : (mappedInput.wasReleased(MappedInputManager::Button::PageForward) || powerPageTurn);
 
   if (!prevTriggered && !nextTriggered) {
     return;
