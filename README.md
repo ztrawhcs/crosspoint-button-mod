@@ -8,7 +8,7 @@ Xteink firmware. It aims to match or improve upon the standard EPUB reading expe
 
 ![](./docs/images/cover.jpg)
 
-## Motivation
+## Motivation 
 
 E-paper devices are fantastic for reading, but most commercially available readers are closed systems with limited 
 customisation. The **Xteink X4** is an affordable, e-paper device, however the official firmware remains closed.
