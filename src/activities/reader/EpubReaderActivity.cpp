@@ -20,8 +20,9 @@ namespace {
 // pagesPerRefresh now comes from SETTINGS.getRefreshFrequency()
 constexpr unsigned long skipChapterMs = 700;
 constexpr unsigned long goHomeMs = 1000;
-// Constant for formatting toggle (0.5 seconds)
 constexpr unsigned long formattingToggleMs = 500;
+// New constant for double click speed
+constexpr unsigned long doubleClickMs = 300;
 
 constexpr int statusBarMargin = 19;
 constexpr int progressBarMarginTop = 1;
@@ -130,12 +131,17 @@ void EpubReaderActivity::onExit() {
 
 void EpubReaderActivity::loop() {
   // --- POPUP AUTO-DISMISS LOGIC ---
-  // If a popup was shown and the timer has expired, trigger a refresh to wipe it.
   static unsigned long clearPopupTimer = 0;
   if (clearPopupTimer > 0 && millis() > clearPopupTimer) {
     clearPopupTimer = 0;
     updateRequired = true;
   }
+
+  // --- DOUBLE CLICK STATE ---
+  static unsigned long lastFormatDecRelease = 0;
+  static bool waitingForFormatDec = false;
+  static unsigned long lastFormatIncRelease = 0;
+  static bool waitingForFormatInc = false;
 
   // Pass input responsibility to sub activity if exists
   if (subActivity) {
@@ -211,41 +217,38 @@ void EpubReaderActivity::loop() {
   // DYNAMIC BUTTON MAPPING LOGIC
   // =========================================================================================
 
-  // We define abstract buttons for "Format Control" and "Navigation"
-  MappedInputManager::Button btnFormatDec;  // Reduce Font / Cycle Spacing
-  MappedInputManager::Button btnFormatInc;  // Increase Font / Cycle Orientation
-  MappedInputManager::Button btnNavPrev;    // Previous Page
-  MappedInputManager::Button btnNavNext;    // Next Page
+  MappedInputManager::Button btnFormatDec;
+  MappedInputManager::Button btnFormatInc;
+  MappedInputManager::Button btnNavPrev;
+  MappedInputManager::Button btnNavNext;
 
   if (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) {
-    // PORTRAIT MODE
-    // Front buttons (Left/Right) control Formatting
     btnFormatDec = MappedInputManager::Button::Left;
     btnFormatInc = MappedInputManager::Button::Right;
-    // Side buttons (PageBack/PageForward) control Navigation
     btnNavPrev = MappedInputManager::Button::PageBack;
     btnNavNext = MappedInputManager::Button::PageForward;
   } else {
-    // LANDSCAPE MODE (CCW)
-    // Side buttons (Now Top) control Formatting
-    btnFormatDec = MappedInputManager::Button::PageBack;     // "Up" button -> Left in landscape
-    btnFormatInc = MappedInputManager::Button::PageForward;  // "Down" button -> Right in landscape
-    // Front buttons (Now Right) control Navigation
+    btnFormatDec = MappedInputManager::Button::PageBack;
+    btnFormatInc = MappedInputManager::Button::PageForward;
     btnNavPrev = MappedInputManager::Button::Left;
     btnNavNext = MappedInputManager::Button::Right;
   }
 
-  // --- HANDLE FORMATTING BUTTONS ---
+  // --- HANDLE FORMAT DEC (Left/Top) ---
+  // Actions: Short (Size-), Long (Spacing), Double (Align)
 
-  // Decrease Button (Short: Font-, Long: Spacing)
+  bool executeFormatDecSingle = false;
+
   if (mappedInput.wasReleased(btnFormatDec)) {
-    bool changed = false;
-    bool limitReached = false;
-
-    xSemaphoreTake(renderingMutex, portMAX_DELAY);
-
     if (mappedInput.getHeldTime() > formattingToggleMs) {
-      // Long Press: Cycle Spacing
+      // Long Press: Cycle Spacing (Immediate)
+      waitingForFormatDec = false;  // Cancel any pending
+      xSemaphoreTake(renderingMutex, portMAX_DELAY);
+      if (section) {
+        cachedSpineIndex = currentSpineIndex;
+        cachedChapterTotalPageCount = section->pageCount;
+        nextPageNumber = section->currentPage;
+      }
       SETTINGS.lineSpacing++;
       if (SETTINGS.lineSpacing >= CrossPointSettings::LINE_COMPRESSION_COUNT) {
         SETTINGS.lineSpacing = 0;
@@ -256,20 +259,63 @@ void EpubReaderActivity::loop() {
       } else if (SETTINGS.lineSpacing == CrossPointSettings::LINE_COMPRESSION::WIDE) {
         spacingMsg = "Spacing: Wide";
       }
+      SETTINGS.saveToFile();
+      section.reset();
+      xSemaphoreGive(renderingMutex);
       GUI.drawPopup(renderer, spacingMsg);
-      changed = true;
+      clearPopupTimer = millis() + 1000;
+      updateRequired = true;
+      return;
     } else {
-      // Short Press: Font Smaller
-      if (SETTINGS.fontSize > CrossPointSettings::FONT_SIZE::SMALL) {
-        SETTINGS.fontSize--;
-        changed = true;
+      // Short Press detected - check if it's a double click
+      if (waitingForFormatDec && (millis() - lastFormatDecRelease < doubleClickMs)) {
+        // DOUBLE CLICK: Toggle Alignment
+        waitingForFormatDec = false;
+        xSemaphoreTake(renderingMutex, portMAX_DELAY);
+        if (section) {
+          cachedSpineIndex = currentSpineIndex;
+          cachedChapterTotalPageCount = section->pageCount;
+          nextPageNumber = section->currentPage;
+        }
+        // Toggle between Left and Justified
+        if (SETTINGS.paragraphAlignment == CrossPointSettings::ALIGNMENT::LEFT) {
+          SETTINGS.paragraphAlignment = CrossPointSettings::ALIGNMENT::JUSTIFIED;
+          GUI.drawPopup(renderer, "Align: Justified");
+        } else {
+          SETTINGS.paragraphAlignment = CrossPointSettings::ALIGNMENT::LEFT;
+          GUI.drawPopup(renderer, "Align: Left");
+        }
+        SETTINGS.saveToFile();
+        section.reset();
+        xSemaphoreGive(renderingMutex);
+        clearPopupTimer = millis() + 1000;
+        updateRequired = true;
+        return;
       } else {
-        limitReached = true;
+        // First click - start waiting
+        waitingForFormatDec = true;
+        lastFormatDecRelease = millis();
       }
     }
+  }
 
+  // Check for timeout on pending single click
+  if (waitingForFormatDec && (millis() - lastFormatDecRelease > doubleClickMs)) {
+    waitingForFormatDec = false;
+    executeFormatDecSingle = true;
+  }
+
+  if (executeFormatDecSingle) {
+    bool changed = false;
+    bool limitReached = false;
+    xSemaphoreTake(renderingMutex, portMAX_DELAY);
+    if (SETTINGS.fontSize > CrossPointSettings::FONT_SIZE::SMALL) {
+      SETTINGS.fontSize--;
+      changed = true;
+    } else {
+      limitReached = true;
+    }
     if (changed) {
-      // CRITICAL FIX: Only save and reset if something actually changed!
       if (section) {
         cachedSpineIndex = currentSpineIndex;
         cachedChapterTotalPageCount = section->pageCount;
@@ -278,64 +324,93 @@ void EpubReaderActivity::loop() {
       SETTINGS.saveToFile();
       section.reset();
     }
-
     xSemaphoreGive(renderingMutex);
-
     if (changed) {
       updateRequired = true;
     } else if (limitReached) {
-      // Show popup and set timer to clear it in 1 second
       GUI.drawPopup(renderer, "Min Size Reached");
       clearPopupTimer = millis() + 1000;
     }
-    return;
   }
 
-  // Increase Button (Short: Font+, Long: Toggle Orientation)
-  if (mappedInput.wasReleased(btnFormatInc)) {
-    bool changed = false;
-    bool limitReached = false;
-    bool orientationChanged = false;
+  // --- HANDLE FORMAT INC (Right/Top) ---
+  // Actions: Short (Size+), Long (Rotate), Double (Anti-Alias)
 
+  bool executeFormatIncSingle = false;
+
+  if (mappedInput.wasReleased(btnFormatInc)) {
     if (mappedInput.getHeldTime() > formattingToggleMs) {
-      // Long Press: Toggle Orientation (Portrait <-> Landscape CCW)
+      // Long Press: Toggle Orientation (Immediate)
+      waitingForFormatInc = false;
       uint8_t newOrientation = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT)
                                    ? CrossPointSettings::ORIENTATION::LANDSCAPE_CCW
                                    : CrossPointSettings::ORIENTATION::PORTRAIT;
       applyOrientation(newOrientation);
       const char* orientMsg = (newOrientation == CrossPointSettings::ORIENTATION::PORTRAIT) ? "Portrait" : "Landscape";
       GUI.drawPopup(renderer, orientMsg);
-      orientationChanged = true;
+      clearPopupTimer = millis() + 1000;
+      updateRequired = true;
+      return;
     } else {
-      // Short Press: Font Larger
-      xSemaphoreTake(renderingMutex, portMAX_DELAY);
-      if (SETTINGS.fontSize < CrossPointSettings::FONT_SIZE::EXTRA_LARGE) {
-        SETTINGS.fontSize++;
-        changed = true;
-      } else {
-        limitReached = true;
-      }
-
-      if (changed) {
+      // Short Press detected
+      if (waitingForFormatInc && (millis() - lastFormatIncRelease < doubleClickMs)) {
+        // DOUBLE CLICK: Toggle Anti-Aliasing
+        waitingForFormatInc = false;
+        xSemaphoreTake(renderingMutex, portMAX_DELAY);
         if (section) {
           cachedSpineIndex = currentSpineIndex;
           cachedChapterTotalPageCount = section->pageCount;
           nextPageNumber = section->currentPage;
         }
+        SETTINGS.textAntiAliasing = !SETTINGS.textAntiAliasing;
+        const char* aaMsg = SETTINGS.textAntiAliasing ? "Anti-Alias: ON" : "Anti-Alias: OFF";
         SETTINGS.saveToFile();
         section.reset();
+        xSemaphoreGive(renderingMutex);
+        GUI.drawPopup(renderer, aaMsg);
+        clearPopupTimer = millis() + 1000;
+        updateRequired = true;
+        return;
+      } else {
+        // First click
+        waitingForFormatInc = true;
+        lastFormatIncRelease = millis();
       }
-      xSemaphoreGive(renderingMutex);
     }
+  }
 
-    if (changed || orientationChanged) {
+  // Check for timeout
+  if (waitingForFormatInc && (millis() - lastFormatIncRelease > doubleClickMs)) {
+    waitingForFormatInc = false;
+    executeFormatIncSingle = true;
+  }
+
+  if (executeFormatIncSingle) {
+    bool changed = false;
+    bool limitReached = false;
+    xSemaphoreTake(renderingMutex, portMAX_DELAY);
+    if (SETTINGS.fontSize < CrossPointSettings::FONT_SIZE::EXTRA_LARGE) {
+      SETTINGS.fontSize++;
+      changed = true;
+    } else {
+      limitReached = true;
+    }
+    if (changed) {
+      if (section) {
+        cachedSpineIndex = currentSpineIndex;
+        cachedChapterTotalPageCount = section->pageCount;
+        nextPageNumber = section->currentPage;
+      }
+      SETTINGS.saveToFile();
+      section.reset();
+    }
+    xSemaphoreGive(renderingMutex);
+    if (changed) {
       updateRequired = true;
     } else if (limitReached) {
-      // Show popup and set timer to clear it in 1 second
       GUI.drawPopup(renderer, "Max Size Reached");
       clearPopupTimer = millis() + 1000;
     }
-    return;
   }
 
   // --- HANDLE NAVIGATION BUTTONS ---
