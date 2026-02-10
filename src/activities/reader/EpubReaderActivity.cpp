@@ -175,9 +175,6 @@ void EpubReaderActivity::onEnter() {
 void EpubReaderActivity::onExit() {
   ActivityWithSubactivity::onExit();
 
-  // Disable fading fix when leaving (safer)
-  renderer.setFadingFix(false);
-
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
 
   xSemaphoreTake(renderingMutex, portMAX_DELAY);
@@ -898,12 +895,12 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     const int h = renderer.getScreenHeight();
 
     // Draw Center "Dismiss" instruction
-    drawHelpBox(renderer, w / 2, h / 2 - 20, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER);
+    drawHelpBox(renderer, w / 2, 75, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER);
 
     if (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) {
       // PORTRAIT LABELS
       // Front Left (Bottom Left) - tighter spacing
-      drawHelpBox(renderer, w - 120, h - 80, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT);
+      drawHelpBox(renderer, w - 155, h - 80, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT);
 
       // Front Right (Bottom Right)
       drawHelpBox(renderer, w - 10, h - 80, "1x: Text size +\nHold: Rotate\n2x: AntiAlias", BoxAlign::RIGHT);
@@ -926,15 +923,13 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   const_cast<GfxRenderer&>(renderer).setFadingFix(true);
 
   if (pagesUntilFullRefresh <= 1) {
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+    // FORCE FULL REFRESH to clear DC bias / gray haze
+    renderer.displayBuffer(HalDisplay::FULL_REFRESH);
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
   } else {
     renderer.displayBuffer();
     pagesUntilFullRefresh--;
   }
-
-  // Disable it immediately after to ensure safety for other UI elements
-  // const_cast<GfxRenderer&>(renderer).setFadingFix(false);
 
   renderer.storeBwBuffer();
 
