@@ -897,26 +897,27 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     const int w = renderer.getScreenWidth();
     const int h = renderer.getScreenHeight();
 
-    // Draw Center "Dismiss" instruction
-    drawHelpBox(renderer, w / 2 + 25, 75, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER);
-
+    // --- HELP OVERLAY CONTENT ---
     if (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) {
-      // PORTRAIT LABELS
-      // Front Left (Bottom Left) - Moved further left to w-185
-      drawHelpBox(renderer, w - 185, h - 80, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT);
+      // PORTRAIT: Dismiss at CENTER
+      drawHelpBox(renderer, w / 2, h / 2, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER);
+
+      // Front Left (Bottom Left) - tighter spacing (w - 145)
+      drawHelpBox(renderer, w - 145, h - 80, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT);
 
       // Front Right (Bottom Right)
       drawHelpBox(renderer, w - 10, h - 80, "1x: Text size +\nHold: Rotate\n2x: AntiAlias", BoxAlign::RIGHT);
 
     } else {
-      // LANDSCAPE CCW LABELS
+      // LANDSCAPE: Dismiss BELOW buttons
+      drawHelpBox(renderer, w / 2 + 25, 120, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER);
 
       // Top Buttons (Top Edge - configuration)
-      // Left (was Left) - shifted right by 20
-      drawHelpBox(renderer, w / 2 + 20, 20, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT);
+      // Left (was Left) - shifted right by 25
+      drawHelpBox(renderer, w / 2 + 25, 20, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT);
 
-      // Right (was Right) - shifted right by 30
-      drawHelpBox(renderer, w / 2 + 30, 20, "1x: Text size +\nHold: Rotate\n2x: AntiAlias", BoxAlign::LEFT);
+      // Right (was Right) - shifted right by 35
+      drawHelpBox(renderer, w / 2 + 35, 20, "1x: Text size +\nHold: Rotate\n2x: AntiAlias", BoxAlign::LEFT);
     }
   }
 
@@ -926,8 +927,8 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   const_cast<GfxRenderer&>(renderer).setFadingFix(true);
 
   if (pagesUntilFullRefresh <= 1) {
-    // Revert to HALF_REFRESH to test "Soft" cleaning
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+    // FORCE FULL REFRESH to clear DC bias / gray haze
+    renderer.displayBuffer(HalDisplay::FULL_REFRESH);
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
   } else {
     renderer.displayBuffer();
