@@ -906,7 +906,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
       drawHelpBox(renderer, w / 2, 500, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER, overlayFontId,
                   overlayLineHeight);
 
-      // Front Left (Bottom Left) - Reverted to w-160 for smaller font
+      // Front Left (Bottom Left) - Reverted to w-160 for smaller font gap
       drawHelpBox(renderer, w - 160, h - 80, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT,
                   overlayFontId, overlayLineHeight);
 
@@ -915,9 +915,9 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
                   overlayFontId, overlayLineHeight);
 
     } else {
-      // LANDSCAPE: Use larger font
-      overlayFontId = NOTOSANS_14_FONT_ID;
-      overlayLineHeight = 26;
+      // LANDSCAPE: Use smaller font as requested to keep inside boxes
+      overlayFontId = SMALL_FONT_ID;
+      overlayLineHeight = 20;
 
       // Draw Center "Dismiss" instruction - Below buttons (300)
       drawHelpBox(renderer, w / 2 + 25, 300, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER, overlayFontId,
