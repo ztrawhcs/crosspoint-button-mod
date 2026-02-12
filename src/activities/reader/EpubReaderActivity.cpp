@@ -217,7 +217,7 @@ void EpubReaderActivity::loop() {
     return;
   }
 
-  // --- DOUBLE CLICK STATE ---
+  // --- DOUBLE CLICK STATE VARIABLES ---
   static unsigned long lastFormatDecRelease = 0;
   static bool waitingForFormatDec = false;
   static unsigned long lastFormatIncRelease = 0;
@@ -267,8 +267,8 @@ void EpubReaderActivity::loop() {
 
   // --- CONFIRM BUTTON (MENU / HELP) ---
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (mappedInput.getHeldTime() > formattingToggleMs) {
-      // Long Press: Toggle Help Overlay
+    if (SETTINGS.buttonModMode == CrossPointSettings::MOD_FULL && mappedInput.getHeldTime() > formattingToggleMs) {
+      // Long Press: Toggle Help Overlay (Only in Full Mode)
       showHelpOverlay = true;
       updateRequired = true;
       return;
@@ -298,28 +298,36 @@ void EpubReaderActivity::loop() {
     return;
   }
 
-  // Replace standard single-click logic with Double Click detection for Dark Mode
-  if (mappedInput.wasReleased(MappedInputManager::Button::Back) && mappedInput.getHeldTime() < goHomeMs) {
-    if (waitingForBack && (millis() - lastBackRelease < doubleClickMs)) {
-      // DOUBLE CLICK DETECTED: Toggle Dark Mode
-      waitingForBack = false;
-      isNightMode = !isNightMode;
-      GUI.drawPopup(renderer, isNightMode ? "Dark Mode" : "Light Mode");
-      clearPopupTimer = millis() + 1000;
-      updateRequired = true;
-      return;
-    } else {
-      // First click: Start timer
-      waitingForBack = true;
-      lastBackRelease = millis();
+  // In FULL mode, use delay to detect double click for Dark Mode
+  if (SETTINGS.buttonModMode == CrossPointSettings::MOD_FULL) {
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back) && mappedInput.getHeldTime() < goHomeMs) {
+      if (waitingForBack && (millis() - lastBackRelease < doubleClickMs)) {
+        // DOUBLE CLICK DETECTED: Toggle Dark Mode
+        waitingForBack = false;
+        isNightMode = !isNightMode;
+        GUI.drawPopup(renderer, isNightMode ? "Dark Mode" : "Light Mode");
+        clearPopupTimer = millis() + 1000;
+        updateRequired = true;
+        return;
+      } else {
+        // First click: Start timer
+        waitingForBack = true;
+        lastBackRelease = millis();
+      }
     }
-  }
 
-  // Execute Delayed Single Click (Go Home)
-  if (waitingForBack && (millis() - lastBackRelease > doubleClickMs)) {
-    waitingForBack = false;
-    onGoHome();
-    return;
+    // Execute Delayed Single Click (Go Home)
+    if (waitingForBack && (millis() - lastBackRelease > doubleClickMs)) {
+      waitingForBack = false;
+      onGoHome();
+      return;
+    }
+  } else {
+    // In OFF or SIMPLE mode, standard instant behavior
+    if (mappedInput.wasReleased(MappedInputManager::Button::Back) && mappedInput.getHeldTime() < goHomeMs) {
+      onGoHome();
+      return;
+    }
   }
 
   // =========================================================================================
@@ -346,9 +354,10 @@ void EpubReaderActivity::loop() {
   // --- HANDLE FORMAT DEC ---
   bool executeFormatDecSingle = false;
 
-  if (mappedInput.wasReleased(btnFormatDec)) {
-    if (mappedInput.getHeldTime() > formattingToggleMs) {
-      // Long Press: Cycle Spacing
+  // Only allow formatting logic if NOT in OFF mode
+  if (SETTINGS.buttonModMode != CrossPointSettings::MOD_OFF && mappedInput.wasReleased(btnFormatDec)) {
+    if (SETTINGS.buttonModMode == CrossPointSettings::MOD_FULL && mappedInput.getHeldTime() > formattingToggleMs) {
+      // Long Press: Cycle Spacing (Full Mode Only)
       waitingForFormatDec = false;
       xSemaphoreTake(renderingMutex, portMAX_DELAY);
       if (section) {
@@ -374,8 +383,9 @@ void EpubReaderActivity::loop() {
       updateRequired = true;
       return;
     } else {
-      if (waitingForFormatDec && (millis() - lastFormatDecRelease < doubleClickMs)) {
-        // DOUBLE CLICK: Toggle Alignment (Restored)
+      if (SETTINGS.buttonModMode == CrossPointSettings::MOD_FULL && waitingForFormatDec &&
+          (millis() - lastFormatDecRelease < doubleClickMs)) {
+        // DOUBLE CLICK: Toggle Alignment (Full Mode Only)
         waitingForFormatDec = false;
         xSemaphoreTake(renderingMutex, portMAX_DELAY);
         if (section) {
@@ -397,8 +407,14 @@ void EpubReaderActivity::loop() {
         updateRequired = true;
         return;
       } else {
-        waitingForFormatDec = true;
-        lastFormatDecRelease = millis();
+        if (SETTINGS.buttonModMode == CrossPointSettings::MOD_SIMPLE) {
+          // Simple Mode: Execute single click immediately
+          executeFormatDecSingle = true;
+        } else {
+          // Full Mode: Wait for potential double click
+          waitingForFormatDec = true;
+          lastFormatDecRelease = millis();
+        }
       }
     }
   }
@@ -439,9 +455,9 @@ void EpubReaderActivity::loop() {
   // --- HANDLE FORMAT INC ---
   bool executeFormatIncSingle = false;
 
-  if (mappedInput.wasReleased(btnFormatInc)) {
-    if (mappedInput.getHeldTime() > formattingToggleMs) {
-      // Long Press: Toggle Orientation
+  if (SETTINGS.buttonModMode != CrossPointSettings::MOD_OFF && mappedInput.wasReleased(btnFormatInc)) {
+    if (SETTINGS.buttonModMode == CrossPointSettings::MOD_FULL && mappedInput.getHeldTime() > formattingToggleMs) {
+      // Long Press: Toggle Orientation (Full Mode Only)
       waitingForFormatInc = false;
       uint8_t newOrientation = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT)
                                    ? CrossPointSettings::ORIENTATION::LANDSCAPE_CCW
@@ -453,8 +469,9 @@ void EpubReaderActivity::loop() {
       updateRequired = true;
       return;
     } else {
-      if (waitingForFormatInc && (millis() - lastFormatIncRelease < doubleClickMs)) {
-        // DOUBLE CLICK: Toggle Anti-Aliasing
+      if (SETTINGS.buttonModMode == CrossPointSettings::MOD_FULL && waitingForFormatInc &&
+          (millis() - lastFormatIncRelease < doubleClickMs)) {
+        // DOUBLE CLICK: Toggle Anti-Aliasing (Full Mode Only)
         waitingForFormatInc = false;
         xSemaphoreTake(renderingMutex, portMAX_DELAY);
         if (section) {
@@ -472,8 +489,12 @@ void EpubReaderActivity::loop() {
         updateRequired = true;
         return;
       } else {
-        waitingForFormatInc = true;
-        lastFormatIncRelease = millis();
+        if (SETTINGS.buttonModMode == CrossPointSettings::MOD_SIMPLE) {
+          executeFormatIncSingle = true;
+        } else {
+          waitingForFormatInc = true;
+          lastFormatIncRelease = millis();
+        }
       }
     }
   }
@@ -513,13 +534,25 @@ void EpubReaderActivity::loop() {
 
   // --- HANDLE NAVIGATION BUTTONS ---
   const bool usePressForPageTurn = !SETTINGS.longPressChapterSkip;
-  const bool prevTriggered =
-      usePressForPageTurn ? mappedInput.wasPressed(btnNavPrev) : mappedInput.wasReleased(btnNavPrev);
+
+  bool prevTriggered = usePressForPageTurn ? mappedInput.wasPressed(btnNavPrev) : mappedInput.wasReleased(btnNavPrev);
 
   const bool powerPageTurn = SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::PAGE_TURN &&
                              mappedInput.wasReleased(MappedInputManager::Button::Power);
-  const bool nextTriggered = usePressForPageTurn ? (mappedInput.wasPressed(btnNavNext) || powerPageTurn)
-                                                 : (mappedInput.wasReleased(btnNavNext) || powerPageTurn);
+
+  bool nextTriggered = usePressForPageTurn ? (mappedInput.wasPressed(btnNavNext) || powerPageTurn)
+                                           : (mappedInput.wasReleased(btnNavNext) || powerPageTurn);
+
+  // FALLBACK: In OFF mode, the formatting buttons revert to Page Turns
+  if (SETTINGS.buttonModMode == CrossPointSettings::MOD_OFF) {
+    if (usePressForPageTurn) {
+      if (mappedInput.wasPressed(btnFormatDec)) prevTriggered = true;
+      if (mappedInput.wasPressed(btnFormatInc)) nextTriggered = true;
+    } else {
+      if (mappedInput.wasReleased(btnFormatDec)) prevTriggered = true;
+      if (mappedInput.wasReleased(btnFormatInc)) nextTriggered = true;
+    }
+  }
 
   if (!prevTriggered && !nextTriggered) {
     return;
@@ -733,6 +766,18 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
             }));
         xSemaphoreGive(renderingMutex);
       }
+      break;
+    }
+    case EpubReaderMenuActivity::MenuAction::BUTTON_MOD_SETTINGS: {
+      // Toggle mode and save
+      SETTINGS.buttonModMode = (SETTINGS.buttonModMode + 1) % CrossPointSettings::BUTTON_MOD_MODE_COUNT;
+      SETTINGS.saveToFile();
+
+      // Re-enter the menu to update the display text immediately (optional but nice)
+      // or just set updateRequired = true in the menu loop if we could reach it easily.
+      // Since the menu activity is handling this directly in its own loop, this case is actually unreachable
+      // via the callback mechanism I set up in EpubReaderMenuActivity.cpp.
+      // The logic is handled inside the menu loop itself.
       break;
     }
   }
