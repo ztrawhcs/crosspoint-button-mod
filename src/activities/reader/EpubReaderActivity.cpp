@@ -128,7 +128,7 @@ void EpubReaderActivity::onEnter() {
   showHelpOverlay = false;
   // Reset Night Mode on entry
   isNightMode = false;
-  
+
   if (!epub) {
     return;
   }
@@ -451,21 +451,20 @@ void EpubReaderActivity::loop() {
     } else {
       if (SETTINGS.buttonModMode == CrossPointSettings::MOD_FULL && waitingForFormatInc &&
           (millis() - lastFormatIncRelease < doubleClickMs)) {
-        
         // DOUBLE CLICK: Toggle Bold (Full Mode Only)
         waitingForFormatInc = false;
         xSemaphoreTake(renderingMutex, portMAX_DELAY);
-        
+
         if (section) {
           cachedSpineIndex = currentSpineIndex;
           cachedChapterTotalPageCount = section->pageCount;
           nextPageNumber = section->currentPage;
         }
-        
+
         SETTINGS.forceBoldText = (SETTINGS.forceBoldText == 0) ? 1 : 0;
         const char* boldMsg = (SETTINGS.forceBoldText == 1) ? "Bold: ON" : "Bold: OFF";
         SETTINGS.saveToFile();
-        
+
         // Reset section to force rebuild with proper font metrics
         if (epub) {
           uint16_t backupSpine = currentSpineIndex;
@@ -473,11 +472,11 @@ void EpubReaderActivity::loop() {
           uint16_t backupPageCount = section ? section->pageCount : 0;
 
           section.reset();
-          saveProgress(backupSpine, backupPage, backupPageCount); 
+          saveProgress(backupSpine, backupPage, backupPageCount);
         } else {
           section.reset();
         }
-        
+
         xSemaphoreGive(renderingMutex);
         GUI.drawPopup(renderer, boldMsg);
         clearPopupTimer = millis() + 1000;
@@ -849,25 +848,24 @@ void EpubReaderActivity::renderScreen() {
     const uint16_t viewportHeight = renderer.getScreenHeight() - orientedMarginTop - orientedMarginBottom;
 
     bool useBold = (SETTINGS.forceBoldText == 1);
-    
+
     // TURN ON GLOBAL BOLD FOR CACHE BUILDER
     EpdFontFamily::globalForceBold = useBold;
 
     if (!section->loadSectionFile(SETTINGS.getReaderFontId(), SETTINGS.getReaderLineCompression(),
                                   SETTINGS.extraParagraphSpacing, SETTINGS.paragraphAlignment, viewportWidth,
-                                  viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
-                                  useBold)) {
+                                  viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle, useBold)) {
       Serial.printf("[%lu] [ERS] Cache not found, building...\n", millis());
 
       const auto popupFn = [this]() { GUI.drawPopup(renderer, "Indexing..."); };
 
       if (!section->createSectionFile(SETTINGS.getReaderFontId(), SETTINGS.getReaderLineCompression(),
                                       SETTINGS.extraParagraphSpacing, SETTINGS.paragraphAlignment, viewportWidth,
-                                      viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
-                                      useBold, popupFn)) {
+                                      viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle, useBold,
+                                      popupFn)) {
         Serial.printf("[%lu] [ERS] Failed to persist page data to SD\n", millis());
         section.reset();
-        
+
         // Ensure bold is off before exiting on fail
         EpdFontFamily::globalForceBold = false;
         return;
@@ -958,16 +956,15 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft) {
-  
   bool useBold = (SETTINGS.forceBoldText == 1);
-  
+
   // 1. Draw the normal black text
   EpdFontFamily::globalForceBold = useBold;
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
-  
+
   // 2. Thicken the core black text by shifting 1 pixel right
   if (SETTINGS.textAntiAliasing && !showHelpOverlay && !isNightMode) {
-      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft + 1, orientedMarginTop);
+    page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft + 1, orientedMarginTop);
   }
 
   // IMMEDIATELY TURN OFF BOLD SO THE UI REMAINS NORMAL
@@ -998,15 +995,15 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
       drawHelpBox(renderer, 10, h - 80, "2x: Dark", BoxAlign::LEFT, overlayFontId, overlayLineHeight);
       drawHelpBox(renderer, w - 145, h - 80, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT,
                   overlayFontId, overlayLineHeight);
-      drawHelpBox(renderer, w - 10, h - 80, "1x: Text size +\nHold: Rotate\n2x: Bold", BoxAlign::RIGHT,
-                  overlayFontId, overlayLineHeight);
+      drawHelpBox(renderer, w - 10, h - 80, "1x: Text size +\nHold: Rotate\n2x: Bold", BoxAlign::RIGHT, overlayFontId,
+                  overlayLineHeight);
 
     } else {
       drawHelpBox(renderer, w - 10, h - 40, "2x: Dark", BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
       drawHelpBox(renderer, w / 2 + 20, 20, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT,
                   overlayFontId, overlayLineHeight);
-      drawHelpBox(renderer, w / 2 + 30, 20, "1x: Text size +\nHold: Rotate\n2x: Bold", BoxAlign::LEFT,
-                  overlayFontId, overlayLineHeight);
+      drawHelpBox(renderer, w / 2 + 30, 20, "1x: Text size +\nHold: Rotate\n2x: Bold", BoxAlign::LEFT, overlayFontId,
+                  overlayLineHeight);
     }
   }
 
@@ -1023,10 +1020,10 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
 
   if (SETTINGS.textAntiAliasing && !showHelpOverlay && !isNightMode) {  // Don't anti-alias the help overlay
     renderer.clearScreen(0x00);
-    
+
     // TURN ON BOLD FOR GRAYSCALE PASSES
     EpdFontFamily::globalForceBold = useBold;
-    
+
     // --- LSB (Light Grays) Pass ---
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
@@ -1034,7 +1031,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     renderer.copyGrayscaleLsbBuffers();
 
     renderer.clearScreen(0x00);
-    
+
     // --- MSB (Dark Grays) Pass ---
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
@@ -1145,6 +1142,4 @@ void EpubReaderActivity::renderStatusBar(const int orientedMarginRight, const in
                       titleMarginLeftAdjusted + orientedMarginLeft + (availableTitleSpace - titleWidth) / 2, textY,
                       title.c_str());
   }
-}
-
 }
