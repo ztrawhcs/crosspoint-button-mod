@@ -769,15 +769,8 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       break;
     }
     case EpubReaderMenuActivity::MenuAction::BUTTON_MOD_SETTINGS: {
-      // Toggle mode and save
       SETTINGS.buttonModMode = (SETTINGS.buttonModMode + 1) % CrossPointSettings::BUTTON_MOD_MODE_COUNT;
       SETTINGS.saveToFile();
-
-      // Re-enter the menu to update the display text immediately (optional but nice)
-      // or just set updateRequired = true in the menu loop if we could reach it easily.
-      // Since the menu activity is handling this directly in its own loop, this case is actually unreachable
-      // via the callback mechanism I set up in EpubReaderMenuActivity.cpp.
-      // The logic is handled inside the menu loop itself.
       break;
     }
   }
@@ -816,7 +809,6 @@ void EpubReaderActivity::displayTaskLoop() {
   }
 }
 
-// TODO: Failure handling
 void EpubReaderActivity::renderScreen() {
   if (!epub) {
     return;
@@ -955,6 +947,7 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
     Serial.printf("[ERS] Could not save progress!\n");
   }
 }
+
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft) {
@@ -978,41 +971,22 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     int overlayLineHeight = 18;  // Tight line height
 
     // Draw Center "Dismiss" instruction
-    // Landscape: y = 300 (below buttons)
-    // Portrait: y = 500 (lower half center)
     int dismissY = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) ? 500 : 300;
-
-    // Landscape adjustment for center
     int dismissX = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) ? w / 2 : w / 2 + 25;
 
     drawHelpBox(renderer, dismissX, dismissY, "PRESS ANY KEY\nTO DISMISS", BoxAlign::CENTER, overlayFontId,
                 overlayLineHeight);
 
     if (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) {
-      // PORTRAIT LABELS
-      // Far Left Box (Back Button) -> Dark Mode
       drawHelpBox(renderer, 10, h - 80, "2x: Dark", BoxAlign::LEFT, overlayFontId, overlayLineHeight);
-
-      // Front Left (Left Rocker) -> Spacing/Align (Gap tightened: w-145)
       drawHelpBox(renderer, w - 145, h - 80, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT,
                   overlayFontId, overlayLineHeight);
-
-      // Front Right (Right Rocker)
       drawHelpBox(renderer, w - 10, h - 80, "1x: Text size +\nHold: Rotate\n2x: AntiAlias", BoxAlign::RIGHT,
                   overlayFontId, overlayLineHeight);
-
     } else {
-      // LANDSCAPE CCW LABELS
-
-      // Bottom Right Corner -> Dark Mode
       drawHelpBox(renderer, w - 10, h - 40, "2x: Dark", BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
-
-      // Top Buttons (Top Edge - configuration)
-      // Left (was Left) - shifted right by 20
       drawHelpBox(renderer, w / 2 + 20, 20, "1x: Text size –\nHold: Spacing\n2x: Alignment", BoxAlign::RIGHT,
                   overlayFontId, overlayLineHeight);
-
-      // Right (was Right) - shifted right by 30
       drawHelpBox(renderer, w / 2 + 30, 20, "1x: Text size +\nHold: Rotate\n2x: AntiAlias", BoxAlign::LEFT,
                   overlayFontId, overlayLineHeight);
     }
@@ -1029,26 +1003,18 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
 
   renderer.storeBwBuffer();
 
- if (SETTINGS.textAntiAliasing && !showHelpOverlay && !isNightMode) {  // Don't anti-alias the help overlay
+  if (SETTINGS.textAntiAliasing && !showHelpOverlay && !isNightMode) {  // Don't anti-alias the help overlay
     renderer.clearScreen(0x00);
-    
-    // --- LSB (Light Grays) Pass ---
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
-    // Pseudo-bold: Shift text 1 pixel to the right and draw again
-    page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft + 1, orientedMarginTop);
     renderer.copyGrayscaleLsbBuffers();
 
     renderer.clearScreen(0x00);
-    
-    // --- MSB (Dark Grays) Pass ---
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
-    // Pseudo-bold: Shift text 1 pixel to the right and draw again
-    page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft + 1, orientedMarginTop);
     renderer.copyGrayscaleMsbBuffers();
 
-renderer.displayGrayBuffer();
+    renderer.displayGrayBuffer();
     renderer.setRenderMode(GfxRenderer::BW);
   }
 
