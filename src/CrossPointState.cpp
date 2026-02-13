@@ -1,12 +1,3 @@
-Ah, I see exactly what happened!
-
-Even though it feels like a `.h` issue, the error log you pasted actually shows that `clang-format` is complaining about `src/CrossPointSettings.cpp`. It's a classic trailing whitespace issue: the blank lines I added around the `// New BLE Setting` comment had two invisible spaces on them, and the linter expects blank lines to be completely empty.
-
-Here is the squeaky-clean `src/CrossPointSettings.cpp` file with absolutely zero trailing spaces. Copy and paste this over your current `.cpp` file and the formatting check will finally pass!
-
-### `src/CrossPointSettings.cpp`
-
-```cpp
 #include "CrossPointSettings.h"
 
 #include <HalStorage.h>
@@ -372,5 +363,3 @@ int CrossPointSettings::getReaderFontId() const {
       }
   }
 }
-
-```
