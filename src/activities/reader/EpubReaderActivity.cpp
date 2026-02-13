@@ -479,9 +479,18 @@ void EpubReaderActivity::loop() {
           cachedChapterTotalPageCount = section->pageCount;
           nextPageNumber = section->currentPage;
         }
+        
         SETTINGS.textAntiAliasing = !SETTINGS.textAntiAliasing;
         const char* aaMsg = SETTINGS.textAntiAliasing ? "Anti-Alias: ON" : "Anti-Alias: OFF";
         SETTINGS.saveToFile();
+        
+        // CRITICAL FIX: We must clear the layout cache when toggling Anti-Aliasing!
+        // If we don't, it will load the narrow Regular font spacing and crash into the wide Bold text.
+        if (epub) {
+          epub->clearCache();
+          epub->setupCacheDir();
+        }
+
         section.reset();
         xSemaphoreGive(renderingMutex);
         GUI.drawPopup(renderer, aaMsg);
@@ -849,6 +858,11 @@ void EpubReaderActivity::renderScreen() {
   if (!section) {
     const auto filepath = epub->getSpineItem(currentSpineIndex).href;
     Serial.printf("[%lu] [ERS] Loading file: %s, index: %d\n", millis(), filepath.c_str(), currentSpineIndex);
+    
+    // CRITICAL LAYOUT FIX: Turn ON forced bold BEFORE the engine calculates line breaks!
+    // This tells the EPUB engine to use the wide bold metrics to place the letters.
+    EpdFontFamily::globalForceBold = (SETTINGS.textAntiAliasing && !isNightMode);
+
     section = std::unique_ptr<Section>(new Section(epub, currentSpineIndex, renderer));
 
     const uint16_t viewportWidth = renderer.getScreenWidth() - orientedMarginLeft - orientedMarginRight;
@@ -895,6 +909,9 @@ void EpubReaderActivity::renderScreen() {
       section->currentPage = newPage;
       pendingPercentJump = false;
     }
+
+    // Turn OFF forced bold as soon as layout is done so menus don't get messed up
+    EpdFontFamily::globalForceBold = false;
   }
 
   renderer.clearScreen();
@@ -951,10 +968,13 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft) {
-  // Turn on forced bold ONLY if Anti-Aliasing is enabled
+  
+  // Turn on forced bold ONLY for the main text body
   EpdFontFamily::globalForceBold = (SETTINGS.textAntiAliasing && !showHelpOverlay && !isNightMode);
-
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+  
+  // Turn OFF immediately so the status bar renders properly
+  EpdFontFamily::globalForceBold = false;
   renderStatusBar(orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
 
   if (isNightMode) {
@@ -966,11 +986,9 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     const int w = renderer.getScreenWidth();
     const int h = renderer.getScreenHeight();
 
-    // Use SMALL_FONT_ID (small/standard) for EVERYTHING
     int32_t overlayFontId = SMALL_FONT_ID;
-    int overlayLineHeight = 18;  // Tight line height
+    int overlayLineHeight = 18;  
 
-    // Draw Center "Dismiss" instruction
     int dismissY = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) ? 500 : 300;
     int dismissX = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) ? w / 2 : w / 2 + 25;
 
@@ -992,7 +1010,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     }
   }
 
-  // --- STANDARD REFRESH (Original behavior) ---
+  // --- STANDARD REFRESH ---
   if (pagesUntilFullRefresh <= 1) {
     renderer.displayBuffer(HalDisplay::HALF_REFRESH);
     pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
@@ -1003,7 +1021,10 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
 
   renderer.storeBwBuffer();
 
-  if (SETTINGS.textAntiAliasing && !showHelpOverlay && !isNightMode) {  // Don't anti-alias the help overlay
+  if (SETTINGS.textAntiAliasing && !showHelpOverlay && !isNightMode) {
+    // Turn bold BACK ON for the grayscale passes
+    EpdFontFamily::globalForceBold = true;
+
     renderer.clearScreen(0x00);
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
@@ -1016,12 +1037,12 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
 
     renderer.displayGrayBuffer();
     renderer.setRenderMode(GfxRenderer::BW);
+
+    // Turn OFF one final time
+    EpdFontFamily::globalForceBold = false;
   }
 
   renderer.restoreBwBuffer();
-
-  // Turn it back off so we don't accidentally bold the menus
-  EpdFontFamily::globalForceBold = false;
 }
 
 void EpubReaderActivity::renderStatusBar(const int orientedMarginRight, const int orientedMarginBottom,
