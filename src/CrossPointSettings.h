@@ -152,13 +152,13 @@ class CrossPointSettings {
   uint8_t refreshFrequency = REFRESH_15;
   uint8_t hyphenationEnabled = 0;
 
-  // Reader screen margin settings
+// Reader screen margin settings
   uint8_t screenMargin = 5;
-// OPDS browser settings
+  // OPDS browser settings
   char opdsServerUrl[128] = "";
   char opdsUsername[64] = "";
   char opdsPassword[64] = "";
-  
+
   // BLE Device Settings
   char blePageTurnerMac[18] = "";
 
