@@ -174,6 +174,8 @@ class CrossPointSettings {
   uint8_t embeddedStyle = 1;
   // Button Mod Mode (Off / Simple / Full)
   uint8_t buttonModMode = MOD_FULL;
+  // Text Weight Toggle
+  uint8_t forceBoldText = 0;
 
   ~CrossPointSettings() = default;
 
@@ -195,3 +197,5 @@ class CrossPointSettings {
 
 // Helper macro to access settings
 #define SETTINGS CrossPointSettings::getInstance()
+
+}
