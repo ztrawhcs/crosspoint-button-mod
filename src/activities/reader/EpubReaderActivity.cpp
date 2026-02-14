@@ -210,42 +210,49 @@ if (showHelpOverlay) {
     int dismissY = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) ? 500 : 300;
     int dismissX = (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) ? w / 2 : w / 2 + 25;
 
-    drawHelpBox(renderer, dismissX, dismissY, "PRESS ANY KEY
-TO DISMISS", BoxAlign::CENTER, overlayFontId,
-                overlayLineHeight);
+    drawHelpBox(renderer, dismissX, dismissY,
+                "PRESS ANY KEY\n"
+                "TO DISMISS",
+                BoxAlign::CENTER, overlayFontId, overlayLineHeight);
 
     if (SETTINGS.orientation == CrossPointSettings::ORIENTATION::PORTRAIT) {
       if (SETTINGS.swapPortraitControls == 1) {
         drawHelpBox(renderer, 10, h - 80, "2x: Dark", BoxAlign::LEFT, overlayFontId, overlayLineHeight);
-        drawHelpBox(renderer, w - 10, h / 2 - 70, "1x: Text size –
-Hold: Spacing
-2x: Alignment", BoxAlign::RIGHT,
-                    overlayFontId, overlayLineHeight);
-        drawHelpBox(renderer, w - 10, h / 2 + 10, "1x: Text size +
-Hold: Rotate
-2x: Bold", BoxAlign::RIGHT,
-                    overlayFontId, overlayLineHeight);
+        drawHelpBox(renderer, w - 10, h / 2 - 70,
+                    "1x: Text size –\n"
+                    "Hold: Spacing\n"
+                    "2x: Alignment",
+                    BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
+        drawHelpBox(renderer, w - 10, h / 2 + 10,
+                    "1x: Text size +\n"
+                    "Hold: Rotate\n"
+                    "2x: Bold",
+                    BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
       } else {
         drawHelpBox(renderer, 10, h - 80, "2x: Dark", BoxAlign::LEFT, overlayFontId, overlayLineHeight);
-        drawHelpBox(renderer, w - 145, h - 80, "1x: Text size –
-Hold: Spacing
-2x: Alignment", BoxAlign::RIGHT,
-                    overlayFontId, overlayLineHeight);
-        drawHelpBox(renderer, w - 10, h - 80, "1x: Text size +
-Hold: Rotate
-2x: Bold", BoxAlign::RIGHT, overlayFontId,
-                    overlayLineHeight);
+        drawHelpBox(renderer, w - 145, h - 80,
+                    "1x: Text size –\n"
+                    "Hold: Spacing\n"
+                    "2x: Alignment",
+                    BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
+        drawHelpBox(renderer, w - 10, h - 80,
+                    "1x: Text size +\n"
+                    "Hold: Rotate\n"
+                    "2x: Bold",
+                    BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
       }
     } else {
       drawHelpBox(renderer, w - 10, h - 40, "2x: Dark", BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
-      drawHelpBox(renderer, w / 2 + 20, 20, "1x: Text size –
-Hold: Spacing
-2x: Alignment", BoxAlign::RIGHT,
-                  overlayFontId, overlayLineHeight);
-      drawHelpBox(renderer, w / 2 + 30, 20, "1x: Text size +
-Hold: Rotate
-2x: Bold", BoxAlign::LEFT, overlayFontId,
-                  overlayLineHeight);
+      drawHelpBox(renderer, w / 2 + 20, 20,
+                  "1x: Text size –\n"
+                  "Hold: Spacing\n"
+                  "2x: Alignment",
+                  BoxAlign::RIGHT, overlayFontId, overlayLineHeight);
+      drawHelpBox(renderer, w / 2 + 30, 20,
+                  "1x: Text size +\n"
+                  "Hold: Rotate\n"
+                  "2x: Bold",
+                  BoxAlign::LEFT, overlayFontId, overlayLineHeight);
     }
   }
 
